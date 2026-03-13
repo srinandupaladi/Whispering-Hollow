@@ -29,7 +29,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setSize(14, 28);
     body.setOffset(9, 4);
     body.setCollideWorldBounds(true);
-    body.setMaxVelocity(360, 780);
+    body.setMaxVelocity(300, 700);
 
     this.setDepth(220);
   }
@@ -44,8 +44,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.isClimbing = wantsClimb;
     if (this.isClimbing) {
       body.setAllowGravity(false);
-      body.setVelocityY((controls.up ? -1 : controls.down ? 1 : 0) * 185);
-      body.setVelocityX(Phaser.Math.Linear(body.velocity.x, 0, 0.25));
+      body.setVelocityY((controls.up ? -1 : controls.down ? 1 : 0) * 165);
+      body.setVelocityX(Phaser.Math.Linear(body.velocity.x, 0, 0.28));
     } else {
       body.setAllowGravity(true);
     }
@@ -54,8 +54,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const moveDirection = (controls.left ? -1 : 0) + (controls.right ? 1 : 0);
       this.isCrouching = controls.down && onFloor;
       this.isRunning = controls.sprint && !this.isCrouching && moveDirection !== 0;
-      const speed = this.isCrouching ? 95 : this.isRunning ? 285 : 185;
-      body.setVelocityX(moveDirection * speed);
+      const speed = this.isCrouching ? 78 : this.isRunning ? 215 : 156;
+      const smoothing = onFloor ? 0.34 : 0.16;
+      body.setVelocityX(Phaser.Math.Linear(body.velocity.x, moveDirection * speed, smoothing));
 
       if (moveDirection !== 0) {
         this.facing = moveDirection > 0 ? 1 : -1;
@@ -63,7 +64,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
       const jumpJustPressed = controls.jump && !this.previousJump;
       if (jumpJustPressed && onFloor) {
-        body.setVelocityY(-430);
+        body.setVelocityY(-320);
       }
     }
 
@@ -131,8 +132,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.health -= amount;
     this.invulnerabilityMs = 1250;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setVelocityX(this.x < sourceX ? -210 : 210);
-    body.setVelocityY(-220);
+    body.setVelocityX(this.x < sourceX ? -180 : 180);
+    body.setVelocityY(-180);
     return this.health > 0;
   }
 

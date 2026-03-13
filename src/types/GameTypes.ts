@@ -11,6 +11,8 @@ export type PuzzleKind = 'mirror' | 'generator' | 'crate' | 'rune';
 
 export type EndingKind = 'seal' | 'save' | 'gameover';
 
+export type NpcRole = 'keeper' | 'villager' | 'echo';
+
 export enum EnemyState {
   Idle = 'idle',
   Patrol = 'patrol',
@@ -84,6 +86,16 @@ export interface EnemySpawnDef {
   patrolDistance?: number;
 }
 
+export interface NpcDef {
+  id: string;
+  x: number;
+  y: number;
+  name: string;
+  role: NpcRole;
+  dialogue: string[];
+  tint?: number;
+}
+
 export interface BackgroundLayerDef {
   key: string;
   color: number;
@@ -114,6 +126,7 @@ export interface LevelDefinition {
   doors: DoorDef[];
   puzzles: PuzzleDef[];
   enemies: EnemySpawnDef[];
+  npcs: NpcDef[];
   backgroundLayers: BackgroundLayerDef[];
   proceduralForest?: boolean;
 }

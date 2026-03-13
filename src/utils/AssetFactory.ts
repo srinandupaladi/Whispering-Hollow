@@ -342,6 +342,29 @@ const createEnemyTextures = (scene: Phaser.Scene) => {
   registerAnimation(scene, 'hollow-king-idle', ['hollow-king-0', 'hollow-king-1'], 3);
 };
 
+const createNpcTextures = (scene: Phaser.Scene) => {
+  const makeNpc = (key: string, coat: number, accent: number, glow = false) => {
+    withGraphics(scene, 32, 36, (graphics) => {
+      graphics.clear();
+      graphics.fillStyle(accent, glow ? 0.75 : 1);
+      graphics.fillRect(11, 2, 10, 7);
+      graphics.fillStyle(coat, glow ? 0.8 : 1);
+      graphics.fillRect(9, 10, 14, 16);
+      graphics.fillRect(6, 14, 4, 10);
+      graphics.fillRect(22, 14, 4, 10);
+      graphics.fillRect(11, 26, 4, 8);
+      graphics.fillRect(17, 26, 4, 8);
+      if (glow) {
+        graphics.fillStyle(0xe4f5ff, 0.45);
+        graphics.fillRect(12, 6, 8, 4);
+      }
+    }).generate(key);
+  };
+
+  makeNpc('npc-keeper', 0x5f4a35, 0xe2cf9f);
+  makeNpc('npc-villager', 0x48515c, 0xd8c1a3);
+  makeNpc('npc-echo', 0x9fc1d4, 0xf3f8ff, true);
+};
 const createEnvironmentTextures = (scene: Phaser.Scene) => {
   createGround(scene, 'ground-road', 128, 64, 0x46362b, 0x85735a);
   createGround(scene, 'ground-forest', 128, 64, 0x213224, 0x587048, true);
@@ -461,6 +484,7 @@ export const generateRuntimeAssets = (scene: Phaser.Scene) => {
   createEnvironmentTextures(scene);
   createPickupTextures(scene);
   createInterfaceTextures(scene);
+  createNpcTextures(scene);
   createPlayerTextures(scene);
   createEnemyTextures(scene);
 };

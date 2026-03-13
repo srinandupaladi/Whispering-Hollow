@@ -6,13 +6,14 @@ import { FlashlightSystem } from '../systems/FlashlightSystem';
 import { LightingSystem } from '../systems/LightingSystem';
 import { FogSystem } from '../systems/FogSystem';
 import { HorrorDirectorSystem } from '../systems/HorrorDirectorSystem';
-import { ProceduralLevelSystem, LanternRuntime, PickupRuntime } from '../systems/ProceduralLevelSystem';
+import { ProceduralLevelSystem, LanternRuntime, PickupRuntime, NpcRuntime } from '../systems/ProceduralLevelSystem';
 import { PuzzleSystem } from '../systems/PuzzleSystem';
 import { EnemyAISystem } from '../systems/EnemyAISystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { HUD } from '../ui/HUD';
 import { Inventory } from '../ui/Inventory';
 import { PauseMenu } from '../ui/PauseMenu';
+import { DialogueBox } from '../ui/DialogueBox';
 import { Soundscape } from '../utils/Soundscape';
 
 interface LevelSceneData {
@@ -33,9 +34,11 @@ export class LevelScene extends Phaser.Scene {
   private hud!: HUD;
   private inventory!: Inventory;
   private pauseMenu!: PauseMenu;
+  private dialogueBox!: DialogueBox;
   private levelBuild!: ReturnType<ProceduralLevelSystem['build']>;
   private soundscape!: Soundscape;
   private saveData = SaveSystem.createDefault();
+  private dialogueNpc?: NpcRuntime;
   private keys!: {
     left: Phaser.Input.Keyboard.Key;
     right: Phaser.Input.Keyboard.Key;
@@ -130,12 +133,12 @@ export class LevelScene extends Phaser.Scene {
     });
 
     this.player.on('landed', () => this.soundscape.playEffect('land'));
-
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
     this.hud = new HUD(this);
     this.inventory = new Inventory(this);
     this.pauseMenu = new PauseMenu(this);
+    this.dialogueBox = new DialogueBox(this);
     this.syncInventoryUI();
     this.setObjective();
 
@@ -161,11 +164,19 @@ export class LevelScene extends Phaser.Scene {
     });
 
     this.hud.flashMessage(`${level.index}. ${level.name}`);
+    this.time.delayedCall(1200, () => this.hud.flashMessage(level.subtitle));
   }
 
   update(_time: number, delta: number) {
-    if (Phaser.Input.Keyboard.JustDown(this.keys.pause)) {
+    if (!this.dialogueBox.isOpen() && Phaser.Input.Keyboard.JustDown(this.keys.pause)) {
       this.togglePause();
+    }
+
+    if (this.dialogueBox.isOpen()) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.interact) || Phaser.Input.Keyboard.JustDown(this.keys.jump)) {
+        this.advanceDialogue();
+      }
+      return;
     }
 
     if (this.pausedState) {
@@ -298,6 +309,10 @@ export class LevelScene extends Phaser.Scene {
     );
   }
 
+  private getNearbyNpc() {
+    return this.levelBuild.npcs.find((npc) => Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 78);
+  }
+
   private handleCheckpoint(inSafeZone: boolean) {
     if (!inSafeZone) {
       return;
@@ -346,11 +361,11 @@ export class LevelScene extends Phaser.Scene {
 
   private setObjective() {
     const objectives: Record<LevelId, string> = {
-      'broken-road': 'Pull the gate lever and enter Graves Hollow',
-      'hollow-forest': 'Solve the rune path and survive the shifting woods',
-      'forgotten-village': 'Restore power and align the church mirror',
-      'underground-tunnels': 'Use the crate route and finish the tunnel rites',
-      'hollow-cathedral': 'Reach the altar and confront the breach'
+      'broken-road': 'Walk the road, open the gate, and learn how the Hollow breathes',
+      'hollow-forest': 'Cross the forest path and answer the runes without losing the rhythm',
+      'forgotten-village': 'Restore power, align the mirror, and listen to the dead main street',
+      'underground-tunnels': 'Push through the mine slowly enough to hear what Clara left behind',
+      'hollow-cathedral': 'Approach the altar like a procession, not a sprint'
     };
 
     const solved = this.puzzles?.getSolvedCount?.() ?? 0;
@@ -360,8 +375,14 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private handleInteractionPrompt() {
+    const nearbyNpc = this.getNearbyNpc();
     const nearbyLever = this.getNearbyLever();
     const nearExit = Phaser.Geom.Rectangle.Contains(this.levelBuild.exitZone.getBounds(), this.player.x, this.player.y);
+
+    if (nearbyNpc) {
+      this.hud.setPrompt(`Press E to talk to ${nearbyNpc.name}`);
+      return;
+    }
     if (nearbyLever) {
       this.hud.setPrompt('Press E to pull the lever');
       return;
@@ -390,7 +411,33 @@ export class LevelScene extends Phaser.Scene {
     return this.puzzles.canInteract(this.player.x, this.player.y);
   }
 
+  private startDialogue(npc: NpcRuntime) {
+    this.dialogueNpc = npc;
+    this.player.setVelocity(0, 0);
+    this.physics.world.pause();
+    this.dialogueBox.open(npc.name, npc.dialogue);
+    if (npc.role === 'echo') {
+      this.soundscape.playEffect('whisper');
+    }
+  }
+
+  private advanceDialogue() {
+    const hasMore = this.dialogueBox.advance();
+    if (!hasMore) {
+      this.dialogueNpc = undefined;
+      if (!this.pausedState) {
+        this.physics.world.resume();
+      }
+    }
+  }
+
   private handleInteraction() {
+    const nearbyNpc = this.getNearbyNpc();
+    if (nearbyNpc) {
+      this.startDialogue(nearbyNpc);
+      return;
+    }
+
     const nearbyLever = this.getNearbyLever();
     if (nearbyLever) {
       const leverDef = LEVEL_BY_ID[this.levelId].levers.find((lever) => lever.id === nearbyLever.id);
@@ -529,7 +576,7 @@ export class LevelScene extends Phaser.Scene {
     this.pausedState = this.pauseMenu.toggle();
     if (this.pausedState) {
       this.physics.world.pause();
-    } else {
+    } else if (!this.dialogueBox.isOpen()) {
       this.physics.world.resume();
     }
   }
@@ -539,5 +586,3 @@ export class LevelScene extends Phaser.Scene {
     this.scene.start('GameOverScene', { ending: 'gameover', cause: reason });
   }
 }
-
-
